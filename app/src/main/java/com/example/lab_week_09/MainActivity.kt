@@ -8,9 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,53 +28,103 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val list = listOf("Tanu", "Tina", "Tono")
-                    //Here, we call the Home composable
-                    Home(list)
+                    Home()
                 }
             }
         }
     }
 }
 
+//==================================================
+// PART 2 — DATA MODEL
+//==================================================
+data class Student(
+    var name: String
+)
+
+//==================================================
+// UPDATED HOME() — NOW ACTS AS THE PARENT COMPOSABLE
+//==================================================
 @Composable
-fun Home(
-    items: List<String>
+fun Home() {
+
+    // State list untuk menampung data Student
+    val listData = remember {
+        mutableStateListOf(
+            Student("Tanu"),
+            Student("Tina"),
+            Student("Tono")
+        )
+    }
+
+    // State object untuk input TextField
+    var inputField = remember { mutableStateOf(Student("")) }
+
+    // Panggil HomeContent sambil passing state
+    HomeContent(
+        listData = listData,
+        inputField = inputField.value,
+
+        // Update nilai input text
+        onInputValueChange = { input ->
+            inputField.value = inputField.value.copy(name = input)
+        },
+
+        // Aksi tombol Add
+        onButtonClick = {
+            if (inputField.value.name.isNotBlank()) {
+                listData.add(inputField.value)
+                inputField.value = Student("")
+            }
+        }
+    )
+}
+
+//==================================================
+// CHILD COMPOSABLE — MENAMPILKAN UI
+//==================================================
+@Composable
+fun HomeContent(
+    listData: SnapshotStateList<Student>,
+    inputField: Student,
+    onInputValueChange: (String) -> Unit,
+    onButtonClick: () -> Unit
 ) {
+
     LazyColumn {
 
+        // Bagian input
         item {
             Column(
                 modifier = Modifier
                     .padding(16.dp)
-                    .fillMaxWidth(),
+                    .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
                 Text(text = stringResource(id = R.string.enter_item))
 
                 TextField(
-                    value = "",
-                    onValueChange = {},
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number
-                    )
+                    value = inputField.name,
+                    onValueChange = { onInputValueChange(it) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                 )
 
-                Button(onClick = { }) {
+                Button(onClick = { onButtonClick() }) {
                     Text(text = stringResource(id = R.string.button_click))
                 }
             }
         }
 
-        items(items) { item ->
+        // Daftar item
+        items(listData) { student ->
             Column(
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = item)
+                Text(text = student.name)
             }
         }
     }
@@ -82,5 +133,5 @@ fun Home(
 @Preview(showBackground = true)
 @Composable
 fun PreviewHome() {
-    Home(listOf("Tanu", "Tina", "Tono"))
+    Home()
 }
