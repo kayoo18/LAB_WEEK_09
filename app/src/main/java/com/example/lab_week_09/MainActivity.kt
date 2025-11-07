@@ -21,6 +21,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.lab_week_09.ui.theme.*
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.squareup.moshi.Types
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +47,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// DATA CLASS – STEP 2
+// DATA CLASS
 data class Student(
     var name: String
 )
@@ -59,8 +62,8 @@ fun App(navController: NavHostController) {
     ) {
 
         composable("home") {
-            Home { listDataString ->
-                navController.navigate("resultContent/?listData=$listDataString")
+            Home { jsonString ->
+                navController.navigate("resultContent/?listData=$jsonString")
             }
         }
 
@@ -83,7 +86,6 @@ fun Home(
     navigateFromHomeToResult: (String) -> Unit
 ) {
 
-    // State list
     val listData = remember {
         mutableStateListOf(
             Student("Tanu"),
@@ -92,10 +94,16 @@ fun Home(
         )
     }
 
-    // State input
     var inputField by remember { mutableStateOf(Student("")) }
 
-    // Panggil HomeContent – STEP 8
+    // Create Moshi
+    val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
+
+    val type = Types.newParameterizedType(List::class.java, Student::class.java)
+    val adapter = moshi.adapter<List<Student>>(type)
+
     HomeContent(
         listData = listData,
         inputField = inputField,
@@ -109,7 +117,10 @@ fun Home(
             }
         },
         navigateFromHomeToResult = {
-            navigateFromHomeToResult(listData.toList().toString())
+            if (listData.isNotEmpty()) {
+                val json = adapter.toJson(listData)
+                navigateFromHomeToResult(json)
+            }
         }
     )
 }
@@ -126,7 +137,6 @@ fun HomeContent(
 
     LazyColumn {
 
-        // Input section
         item {
             Column(
                 modifier = Modifier
@@ -147,25 +157,26 @@ fun HomeContent(
                     }
                 )
 
-                // Dua tombol: Add & Navigate
                 Row {
 
+                    // ✅ Prevent add when empty
                     PrimaryTextButton(
                         text = stringResource(id = R.string.button_click)
                     ) {
-                        onButtonClick()
+                        if (inputField.name.isNotBlank()) onButtonClick()
                     }
 
+                    // ✅ Prevent navigate when list empty
                     PrimaryTextButton(
                         text = stringResource(id = R.string.button_navigate)
                     ) {
-                        navigateFromHomeToResult()
+                        if (listData.isNotEmpty()) navigateFromHomeToResult()
                     }
                 }
             }
         }
 
-        // Item list
+        // List display
         items(listData) { item ->
             Column(
                 modifier = Modifier
@@ -179,16 +190,30 @@ fun HomeContent(
     }
 }
 
-// RESULT CONTENT
+// RESULT CONTENT — BONUS: JSON list → LazyColumn
 @Composable
 fun ResultContent(listData: String) {
+
+    // Parse JSON back to list<Student>
+    val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    val type = Types.newParameterizedType(List::class.java, Student::class.java)
+    val adapter = moshi.adapter<List<Student>>(type)
+
+    val studentList = adapter.fromJson(listData) ?: emptyList()
+
     Column(
         modifier = Modifier
-            .padding(vertical = 4.dp)
+            .padding(16.dp)
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        OnBackgroundItemText(text = listData)
+        OnBackgroundTitleText("Result Screen")
+
+        LazyColumn {
+            items(studentList) { student ->
+                OnBackgroundItemText(student.name)
+            }
+        }
     }
 }
 
