@@ -16,10 +16,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
-import com.example.lab_week_09.ui.theme.OnBackgroundItemText
-import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
-import com.example.lab_week_09.ui.theme.PrimaryTextButton
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.*
+import androidx.navigation.navArgument
+import com.example.lab_week_09.ui.theme.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,31 +28,62 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LAB_WEEK_09Theme {
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Home()
+
+                    val navController = rememberNavController()
+                    App(
+                        navController = navController
+                    )
                 }
             }
         }
     }
 }
 
-//==================================================
-// PART 2 — DATA MODEL
-//==================================================
+// DATA CLASS – STEP 2
 data class Student(
     var name: String
 )
 
-//==================================================
-// UPDATED HOME() — NOW ACTS AS THE PARENT COMPOSABLE
-//==================================================
+// ROOT NAVIGATION
 @Composable
-fun Home() {
+fun App(navController: NavHostController) {
 
-    // State list untuk menampung data Student
+    NavHost(
+        navController = navController,
+        startDestination = "home"
+    ) {
+
+        composable("home") {
+            Home { listDataString ->
+                navController.navigate("resultContent/?listData=$listDataString")
+            }
+        }
+
+        composable(
+            "resultContent/?listData={listData}",
+            arguments = listOf(
+                navArgument("listData") {
+                    type = NavType.StringType
+                }
+            )
+        ) {
+            ResultContent(it.arguments?.getString("listData").orEmpty())
+        }
+    }
+}
+
+// HOME
+@Composable
+fun Home(
+    navigateFromHomeToResult: (String) -> Unit
+) {
+
+    // State list
     val listData = remember {
         mutableStateListOf(
             Student("Tanu"),
@@ -60,43 +92,41 @@ fun Home() {
         )
     }
 
-    // State object untuk input TextField
-    var inputField = remember { mutableStateOf(Student("")) }
+    // State input
+    var inputField by remember { mutableStateOf(Student("")) }
 
-    // Panggil HomeContent sambil passing state
+    // Panggil HomeContent – STEP 8
     HomeContent(
         listData = listData,
-        inputField = inputField.value,
-
-        // Update nilai input text
-        onInputValueChange = { input ->
-            inputField.value = inputField.value.copy(name = input)
+        inputField = inputField,
+        onInputValueChange = {
+            inputField = inputField.copy(name = it)
         },
-
-        // Aksi tombol Add
         onButtonClick = {
-            if (inputField.value.name.isNotBlank()) {
-                listData.add(inputField.value)
-                inputField.value = Student("")
+            if (inputField.name.isNotBlank()) {
+                listData.add(inputField)
+                inputField = Student("")
             }
+        },
+        navigateFromHomeToResult = {
+            navigateFromHomeToResult(listData.toList().toString())
         }
     )
 }
 
-//==================================================
-// CHILD COMPOSABLE — MENAMPILKAN UI
-//==================================================
+// HOME CONTENT
 @Composable
 fun HomeContent(
     listData: SnapshotStateList<Student>,
     inputField: Student,
     onInputValueChange: (String) -> Unit,
-    onButtonClick: () -> Unit
+    onButtonClick: () -> Unit,
+    navigateFromHomeToResult: () -> Unit
 ) {
 
     LazyColumn {
 
-        // Bagian input
+        // Input section
         item {
             Column(
                 modifier = Modifier
@@ -105,50 +135,68 @@ fun HomeContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                // Title pakai UI Element
-                OnBackgroundTitleText(
-                    text = stringResource(id = R.string.enter_item)
-                )
+                OnBackgroundTitleText(text = stringResource(id = R.string.enter_item))
 
-                // TextField input
                 TextField(
                     value = inputField.name,
-                    onValueChange = { onInputValueChange(it) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text
-                    )
+                    ),
+                    onValueChange = {
+                        onInputValueChange(it)
+                    }
                 )
 
-                // Button pakai UI Element
-                PrimaryTextButton(
-                    text = stringResource(id = R.string.button_click)
-                ) {
-                    onButtonClick()
+                // Dua tombol: Add & Navigate
+                Row {
+
+                    PrimaryTextButton(
+                        text = stringResource(id = R.string.button_click)
+                    ) {
+                        onButtonClick()
+                    }
+
+                    PrimaryTextButton(
+                        text = stringResource(id = R.string.button_navigate)
+                    ) {
+                        navigateFromHomeToResult()
+                    }
                 }
             }
         }
 
-        // Daftar item
-        items(listData) { student ->
+        // Item list
+        items(listData) { item ->
             Column(
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
-                // Item text pakai UI Element
-                OnBackgroundItemText(
-                    text = student.name
-                )
+                OnBackgroundItemText(text = item.name)
             }
         }
     }
+}
 
+// RESULT CONTENT
+@Composable
+fun ResultContent(listData: String) {
+    Column(
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        OnBackgroundItemText(text = listData)
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewHome() {
-    Home()
+    LAB_WEEK_09Theme {
+        val navController = rememberNavController()
+        App(navController)
+    }
 }
